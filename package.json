@@ -1,0 +1,38 @@
+{
+    "name" : "otaat-repl",
+    "version" : "0.0.0",
+    "description" : "A Node REPL that helps you do 'One thing at a time'",
+    "author" : "John Johnson II",
+    "license" : {
+        "type" : "MIT",
+        "url" : "https://github.com/potencia/otaat-repl/raw/master/LICENSE"
+    },
+    "keywords" : ["repl", "promise", "one", "thing", "at", "a", "time"],
+    "homepage" : "https://github.com/potencia/otaat-repl",
+    "bugs" : {
+        "url" : "https://github.com/potencia/otaat-repl/issues"
+    },
+    "repository" : {
+        "type" : "git",
+        "url" : "https://github.com/potencia/otaat-repl"
+    },
+    "files" : ["README.md", "LICENSE", "index.js"],
+    "main" : "index.js",
+    "scripts" : {
+        "test" : "gulp test"
+    },
+    "devDependencies" : {
+        "chai" : "^1.9.1",
+        "gulp" : "^3.6.2",
+        "gulp-istanbul" : "^0.2.0",
+        "gulp-jscs" : "^0.5.0",
+        "gulp-jshint" : "^1.6.1",
+        "gulp-mocha" : "^0.4.1",
+        "gulp-sip" : "^0.1.0",
+        "gulp-util" : "^2.2.14",
+        "jshint-stylish" : "^0.2.0",
+        "run-sequence" : "^0.3.6",
+        "sinon" : "^1.10.0",
+        "q" : "^1.0.1"
+    }
+}
