@@ -1,6 +1,6 @@
 {
     "name" : "otaat-repl",
-    "version" : "0.0.0",
+    "version" : "0.9.0",
     "description" : "A Node REPL that helps you do 'One thing at a time'",
     "author" : "John Johnson II",
     "license" : {

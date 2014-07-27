@@ -1,0 +1,10 @@
+#!/usr/bin/env node
+
+var otaat = require('./index');
+
+var session = otaat.start({
+    prompt : 'otaat> ',
+    ignoreUndefined : true
+});
+
+session.context.Q = require('q');
