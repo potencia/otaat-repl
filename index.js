@@ -4,8 +4,16 @@ var OTaaT = {
     repl : require('repl'),
     vm : require('vm'),
     createEval : function (options) {
+        var timeout = {};
+        function setId (id) {
+            timeout.id = id;
+        }
+        function clearId () {
+            delete timeout.id;
+        }
         return function (code, context, file, callback) {
-            var err, result, timeoutId;
+            var err, result;
+            if (timeout.id) { return; }
             try {
                 if (options.useGlobal) {
                     result = OTaaT.vm.runInThisContext(code, file);
@@ -14,31 +22,34 @@ var OTaaT = {
                 }
                 if (result && Object.prototype.toString.call(result.then) === '[object Function]') {
                     if (options.timeout) {
-                        timeoutId = setTimeout(function () {
+                        setId(setTimeout(function () {
+                            clearId();
                             callback(new Error('The promise was not fulfilled or rejected before the timeout of [ ' + options.timeout + ' ] milliseconds.'));
-                        }, options.timeout);
+                        }, options.timeout));
                     } else {
-                        timeoutId = false;
+                        setId(false);
                     }
                     result
                     .then(
                     function (result) {
-                        clearTimeout(timeoutId);
+                        clearTimeout(timeout.id);
+                        clearId();
                         callback(null, result);
                     },
                     function (reason) {
-                        clearTimeout(timeoutId);
+                        clearTimeout(timeout.id);
+                        clearId();
                         callback(reason);
                     });
                 }
             } catch (e) {
-                clearTimeout(timeoutId);
-                timeoutId = undefined;
+                clearTimeout(timeout.id);
+                clearId();
                 result = undefined;
                 err = e;
             }
 
-            if (timeoutId === undefined) {
+            if (timeout.id === undefined) {
                 callback(err, result);
             }
         };

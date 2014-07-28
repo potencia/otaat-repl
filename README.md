@@ -128,7 +128,8 @@ Example:
     > .timeout true
     Promise timeout was not changed from [ false ].
 
-    Valid values are [ false ] for no timeout and non-negative integers specifying the timeout in milliseconds.
+    Valid values are [ false ] for no timeout and non-negative integers
+    specifying the timeout in milliseconds.
 
     > .timeout 60000
     Promise timeout in milliseconds: 60000

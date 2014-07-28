@@ -149,6 +149,13 @@ describe('OTaaT', function () {
                 evalFn(0, 1, 2, callback);
                 expect(callback.firstCall.args).to.deep.equal([undefined, result]);
             });
+
+            it('should allow multiple calls in a row', function () {
+                evalFn(0, 1, 2, callback);
+                evalFn(0, 1, 2, callback);
+                evalFn(0, 1, 2, callback);
+                expect(vmRunInContext.callCount).to.equal(3);
+            });
         });
 
         describe('when the evaluated code resutls in a promise object', function () {
@@ -165,6 +172,22 @@ describe('OTaaT', function () {
                 setTimeout(function () {
                     expect(callback.callCount).to.equal(1);
                     expect(callback.firstCall.args).to.deep.equal(['Boo!']);
+                }, 10);
+                setTimeout(function () {
+                    expect(callback.callCount).to.equal(1);
+                    done();
+                }, 75);
+            });
+
+            it('should not process calls while the promise is pending', function (done) {
+                evalFn(0, 1, 2, callback);
+                evalFn(0, 1, 2, callback);
+                evalFn(0, 1, 2, callback);
+                expect(callback.callCount).to.equal(0);
+                deferred.resolve('Yay!');
+                setTimeout(function () {
+                    expect(callback.callCount).to.equal(1);
+                    expect(callback.firstCall.args).to.deep.equal([null, 'Yay!']);
                 }, 10);
                 setTimeout(function () {
                     expect(callback.callCount).to.equal(1);
