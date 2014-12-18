@@ -86,14 +86,16 @@ describe('OTaaT', function () {
     });
 
     describe('generated eval function', function () {
-        var evalFn, vmRunInContext, callback;
+        var evalFn, vmRunInContext, callback, callback2, callback3;
         beforeEach(function () {
             vmRunInContext = sinon.stub(OTaaT.vm, 'runInContext');
             callback = sinon.stub();
+            callback2 = sinon.stub();
+            callback3 = sinon.stub();
             OTaaT.start({
                 timeout : 50
             });
-            evalFn = replStart.firstCall.args[0].eval;
+            evalFn = replStart.firstCall.args[0]['eval'];
         });
 
         afterEach(function () {
@@ -105,27 +107,33 @@ describe('OTaaT', function () {
             beforeEach(function () {
                 vmRunInThisContext = sinon.stub(OTaaT.vm, 'runInThisContext');
                 replStart.reset();
-                evalFn = OTaaT.start({
+                OTaaT.start({
                     useGlobal : true
                 });
-                evalFn = replStart.firstCall.args[0].eval;
+                evalFn = replStart.firstCall.args[0]['eval'];
             });
 
             afterEach(function () {
                 vmRunInThisContext.restore();
             });
 
-            it('should pass [ code ] and [ file ] to [ vm.runInThisContext() ]', function () {
-                evalFn('test: code', 'test: context', 'test: file', callback);
-                expect(vmRunInThisContext.callCount).to.equal(1);
-                expect(vmRunInThisContext.firstCall.args).to.deep.equal(['test: code', 'test: file']);
+            it('should pass [ code ] and [ file ] to [ vm.runInThisContext() ]', function (done) {
+                Q().then(function () {
+                    evalFn('test: code', 'test: context', 'test: file', callback);
+                }).delay(1).then(function () {
+                    expect(vmRunInThisContext.callCount).to.equal(1);
+                    expect(vmRunInThisContext.firstCall.args).to.deep.equal(['test: code', 'test: file']);
+                }).done(done);
             });
         });
 
-        it('should pass [ code ], [ context ], and [ file ] to [ vm.runInContext() ]', function () {
-            evalFn('test: code', 'test: context', 'test: file', callback);
-            expect(vmRunInContext.callCount).to.equal(1);
-            expect(vmRunInContext.firstCall.args).to.deep.equal(['test: code', 'test: context', 'test: file']);
+        it('should pass [ code ], [ context ], and [ file ] to [ vm.runInContext() ]', function (done) {
+            Q().then(function () {
+                evalFn('test: code', 'test: context', 'test: file', callback);
+            }).delay(1).then(function () {
+                expect(vmRunInContext.callCount).to.equal(1);
+                expect(vmRunInContext.firstCall.args).to.deep.equal(['test: code', 'test: context', 'test: file']);
+            }).done(done);
         });
 
         describe('when running the code throws an error', function () {
@@ -135,90 +143,109 @@ describe('OTaaT', function () {
                 vmRunInContext.throws(err);
             });
 
-            it('should pass the error to the callback', function () {
-                evalFn(null, null, null, callback);
-                expect(callback.callCount).to.equal(1);
-                expect(callback.firstCall.args[0]).to.equal(err);
+            it('should pass the error to the callback', function (done) {
+                Q().then(function () {
+                    evalFn(null, null, null, callback);
+                }).delay(1).then(function () {
+                    expect(callback.callCount).to.equal(1);
+                    expect(callback.firstCall.args[0]).to.equal(err);
+                }).done(done);
             });
         });
 
-        describe('when the evaluated code resutls in a non promise object', function () {
-            it('should call the callback with the result', function () {
+        describe('when the evaluated code results in a non promise object', function () {
+            it('should call the callback with the result', function (done) {
                 var result = {type : 'result'};
                 vmRunInContext.returns(result);
-                evalFn(0, 1, 2, callback);
-                expect(callback.firstCall.args).to.deep.equal([undefined, result]);
+                Q().then(function () {
+                    evalFn(0, 1, 2, callback);
+                }).delay(1).then(function () {
+                    expect(callback.callCount).to.equal(1);
+                    expect(callback.firstCall.args).to.deep.equal([undefined, result]);
+                }).done(done);
             });
 
-            it('should allow multiple calls in a row', function () {
-                evalFn(0, 1, 2, callback);
-                evalFn(0, 1, 2, callback);
-                evalFn(0, 1, 2, callback);
-                expect(vmRunInContext.callCount).to.equal(3);
+            it('should allow multiple calls in a row', function (done) {
+                Q().then(function () {
+                    evalFn(0, 1, 2, callback);
+                    evalFn(0, 1, 2, callback);
+                    evalFn(0, 1, 2, callback);
+                }).delay(1).then(function () {
+                    expect(vmRunInContext.callCount).to.equal(3);
+                }).done(done);
             });
         });
 
-        describe('when the evaluated code resutls in a promise object', function () {
-            var deferred;
+        describe('when the evaluated code results in a promise object', function () {
+            var deferred, deferred2, deferred3;
             beforeEach(function () {
                 deferred = Q.defer();
-                vmRunInContext.returns(deferred.promise);
+                deferred2 = Q.defer();
+                deferred3 = Q.defer();
+                vmRunInContext.onFirstCall().returns(deferred.promise);
+                vmRunInContext.onSecondCall().returns(deferred2.promise);
+                vmRunInContext.onThirdCall().returns(deferred3.promise);
             });
 
             it('should call the callback with the reason when the promise is rejected', function (done) {
-                evalFn(0, 1, 2, callback);
-                expect(callback.callCount).to.equal(0);
-                deferred.reject('Boo!');
-                setTimeout(function () {
+                Q().then(function () {
+                    evalFn(0, 1, 2, callback);
+                    expect(callback.callCount).to.equal(0);
+                    deferred.reject('Boo!');
+                }).delay(1).then(function () {
                     expect(callback.callCount).to.equal(1);
                     expect(callback.firstCall.args).to.deep.equal(['Boo!']);
-                }, 10);
-                setTimeout(function () {
-                    expect(callback.callCount).to.equal(1);
-                    done();
-                }, 75);
+                }).done(done);
             });
 
-            it('should not process calls while the promise is pending', function (done) {
-                evalFn(0, 1, 2, callback);
-                evalFn(0, 1, 2, callback);
-                evalFn(0, 1, 2, callback);
-                expect(callback.callCount).to.equal(0);
-                deferred.resolve('Yay!');
-                setTimeout(function () {
+            it('should process calls in the order they were received', function (done) {
+                Q().then(function () {
+                    evalFn(0, 1, 2, callback);
+                }).then(function () {
+                    evalFn(0, 1, 2, callback2);
+                }).then(function () {
+                    evalFn(0, 1, 2, callback3);
+                    expect(callback.callCount).to.equal(0);
+                    expect(callback2.callCount).to.equal(0);
+                    expect(callback3.callCount).to.equal(0);
+                    deferred.resolve('Yay!');
+                    deferred3.resolve('Yay3!');
+                }).delay(1).then(function () {
                     expect(callback.callCount).to.equal(1);
-                    expect(callback.firstCall.args).to.deep.equal([null, 'Yay!']);
-                }, 10);
-                setTimeout(function () {
+                    expect(callback2.callCount).to.equal(0);
+                    expect(callback3.callCount).to.equal(0);
+                    expect(callback.firstCall.args).to.deep.equal([undefined, 'Yay!']);
+                    deferred2.resolve('Yay2!');
+                }).delay(1).then(function () {
                     expect(callback.callCount).to.equal(1);
-                    done();
-                }, 75);
+                    expect(callback2.callCount).to.equal(1);
+                    expect(callback3.callCount).to.equal(1);
+                    expect(callback2.firstCall.args).to.deep.equal([undefined, 'Yay2!']);
+                    expect(callback3.firstCall.args).to.deep.equal([undefined, 'Yay3!']);
+                }).done(done);
             });
 
             it('should call the callback with the result when the promise is fulfilled', function (done) {
-                evalFn(0, 1, 2, callback);
-                expect(callback.callCount).to.equal(0);
-                deferred.resolve('Yay!');
-                setTimeout(function () {
+                Q().then(function () {
+                    evalFn(0, 1, 2, callback);
+                    expect(callback.callCount).to.equal(0);
+                    deferred.resolve('Yay!');
+                }).delay(1).then(function () {
                     expect(callback.callCount).to.equal(1);
-                    expect(callback.firstCall.args).to.deep.equal([null, 'Yay!']);
-                }, 10);
-                setTimeout(function () {
-                    expect(callback.callCount).to.equal(1);
-                    done();
-                }, 75);
+                    expect(callback.firstCall.args).to.deep.equal([undefined, 'Yay!']);
+                }).done(done);
             });
 
             it('should call the callback with an error when the promise is pending after a timeout', function (done) {
-                evalFn(0, 1, 2, callback);
-                expect(callback.callCount).to.equal(0);
-                setTimeout(function () {
+                Q().then(function () {
+                    evalFn(0, 1, 2, callback);
+                    expect(callback.callCount).to.equal(0);
+                }).delay(75).then(function () {
                     expect(callback.callCount).to.equal(1);
                     expect(callback.firstCall.args).to.have.length(1);
                     expect(callback.firstCall.args[0]).to.be.an.instanceOf(Error);
                     expect(callback.firstCall.args[0].message).to.equal('The promise was not fulfilled or rejected before the timeout of [ 50 ] milliseconds.');
-                    done();
-                }, 75);
+                }).done(done);
             });
 
             it('should allow the timeout to be [ false ] (no timeout)', function (done) {
@@ -226,14 +253,14 @@ describe('OTaaT', function () {
                 OTaaT.start({
                     timeout : false
                 });
-                evalFn = replStart.firstCall.args[0].eval;
+                evalFn = replStart.firstCall.args[0]['eval'];
 
                 evalFn(0, 1, 2, callback);
                 expect(callback.callCount).to.equal(0);
                 deferred.resolve('Yay!');
                 setImmediate(function () {
                     expect(callback.callCount).to.equal(1);
-                    expect(callback.firstCall.args).to.deep.equal([null, 'Yay!']);
+                    expect(callback.firstCall.args).to.deep.equal([undefined, 'Yay!']);
                     done();
                 });
             });
@@ -241,9 +268,12 @@ describe('OTaaT', function () {
             it('should call the callback with any error [ .then() ] throws', function () {
                 var err = new Error('I am not a real promise.');
                 vmRunInContext.returns({then : function () { throw err; }});
-                evalFn(0, 1, 2, callback);
-                expect(callback.callCount).to.equal(1);
-                expect(callback.firstCall.args).to.deep.equal([err, undefined]);
+                Q().then(function () {
+                    evalFn(0, 1, 2, callback);
+                }).then(function () {
+                    expect(callback.callCount).to.equal(1);
+                    expect(callback.firstCall.args).to.deep.equal([err, undefined]);
+                });
             });
         });
     });

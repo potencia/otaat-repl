@@ -4,59 +4,71 @@ var OTaaT = {
     repl : require('repl'),
     vm : require('vm'),
     createEval : function (options) {
-        var timeout = {};
-        function setId (id) {
-            timeout.id = id;
-        }
-        function clearId () {
-            delete timeout.id;
-        }
-        return function (code, context, file, callback) {
-            var err, result;
-            if (timeout.id) { return; }
-            try {
-                if (options.useGlobal) {
-                    result = OTaaT.vm.runInThisContext(code, file);
-                } else {
-                    result = OTaaT.vm.runInContext(code, context, file);
-                }
-                if (result && Object.prototype.toString.call(result.then) === '[object Function]') {
-                    if (options.timeout) {
-                        setId(setTimeout(function () {
-                            clearId();
-                            callback(new Error('The promise was not fulfilled or rejected before the timeout of [ ' + options.timeout + ' ] milliseconds.'));
-                        }, options.timeout));
+        var vm = this.vm, fireNext = true, timeout = {}, commands = [];
+        function next () {
+            var toProcess = commands.shift(), err, result;
+            if (toProcess) {
+                fireNext = false;
+                try {
+                    if (options.useGlobal) {
+                        result = vm.runInThisContext(toProcess.code, toProcess.file);
                     } else {
-                        setId(false);
+                        result = vm.runInContext(toProcess.code, toProcess.context, toProcess.file);
                     }
-                    result
-                    .then(
-                    function (result) {
-                        clearTimeout(timeout.id);
-                        clearId();
-                        callback(null, result);
-                    },
-                    function (reason) {
-                        clearTimeout(timeout.id);
-                        clearId();
-                        callback(reason);
-                    });
+                    if (result && Object.prototype.toString.call(result.then) === '[object Function]') {
+                        toProcess.async = true;
+                        if (options.timeout) {
+                            toProcess.timeoutId = setTimeout(function () {
+                                if (toProcess.processed) { return; }
+                                toProcess.timedOut = true;
+                                toProcess.callback(new Error('The promise was not fulfilled or rejected before the timeout of [ ' +
+                                options.timeout + ' ] milliseconds.'));
+                                next();
+                            }, options.timeout);
+                        }
+                        result.then(function (response) {
+                            if (toProcess.timedOut) { return; }
+                            toProcess.processed = true;
+                            if (toProcess.timeoutId) { clearTimeout(toProcess.timeoutId); }
+                            toProcess.callback(undefined, response);
+                            next();
+                        }, function (reason) {
+                            if (toProcess.timedOut) { return; }
+                            toProcess.processed = true;
+                            if (toProcess.timeoutId) { clearTimeout(toProcess.timeoutId); }
+                            toProcess.callback(reason);
+                            next();
+                        });
+                    }
+                } catch (e) {
+                    result = undefined;
+                    err = e;
                 }
-            } catch (e) {
-                clearTimeout(timeout.id);
-                clearId();
-                result = undefined;
-                err = e;
-            }
 
-            if (timeout.id === undefined) {
-                callback(err, result);
+                if (!toProcess.async) {
+                    toProcess.callback(err, result);
+                    next();
+                }
+            } else {
+                fireNext = true;
+            }
+        }
+
+        return function (code, context, file, callback) {
+            commands.push({
+                code : code,
+                context : context,
+                file : file,
+                callback : callback
+            });
+            if (fireNext) {
+                next();
             }
         };
     }
 };
 
-function isValidTimoutNumber (arg) { return /^\+?[0-9]+$/.test(arg); }
+function isValidTimeoutNumber (arg) { return /^\+?[0-9]+$/.test(arg); }
 
 function createTimeoutCommand (options) {
     return {
@@ -67,7 +79,7 @@ function createTimeoutCommand (options) {
                 valid = true;
                 options.timeout = false;
             }
-            if (isValidTimoutNumber(arg)) {
+            if (isValidTimeoutNumber(arg)) {
                 valid = true;
                 options.timeout = parseInt(arg);
             }
@@ -96,11 +108,11 @@ OTaaT.start = function (options) {
     }).forEach(function (key) {
         o[key] = options[key];
     });
-    o.eval = OTaaT.createEval(o);
+    o['eval'] = OTaaT.createEval(o);
     if (o.timeout === undefined) {
         o.timeout = 60000;
     } else {
-        if (o.timeout !== false && !isValidTimoutNumber(o.timeout)) {
+        if (o.timeout !== false && !isValidTimeoutNumber(o.timeout)) {
             throw new Error('The [ timeout ] option must be [ false ] or a non-negative integer');
         }
     }
